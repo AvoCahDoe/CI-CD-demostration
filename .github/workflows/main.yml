@@ -31,7 +31,7 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
-          username: ${{ github.actor }} # Votre nom d'utilisateur GitHub (Automatique)
+          username: avocahdoe # Votre nom d'utilisateur GitHub (Automatique)
           password: ${{ secrets.GITHUB_TOKEN }} # Token généré automatiquement par GitHub Action (Pas besoin de le créer)
 
       - name: Connexion à Docker Hub
