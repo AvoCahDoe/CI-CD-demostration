@@ -1,0 +1,43 @@
+name: CI/CD avec Docker
+
+on: [push]
+
+jobs:
+  # JOB 1 : CI (Reste identique)
+  test-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - run: python test_calculatrice.py
+
+  # JOB 2 : CD (Docker)
+  build-push-docker:
+    needs: test-app # On attend que les tests soient OK
+    runs-on: ubuntu-latest
+
+    # Permission nécessaire pour que le pipeline puisse écrire dans le registre GitHub
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v3
+
+      - name: Connexion au registre GitHub (GHCR)
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }} # Votre nom d'utilisateur GitHub (Automatique)
+          password: ${{ secrets.GITHUB_TOKEN }} # Token généré automatiquement par GitHub Action (Pas besoin de le créer)
+
+      - name: Construction et Push de l'image Docker
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          # ATTENTION : Pseudo en minuscules
+          tags: ghcr.io/avocahdoe/calculatrice:latest

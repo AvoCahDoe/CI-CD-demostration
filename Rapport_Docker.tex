@@ -1,0 +1,111 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+\title{Rapport Atelier CI/CD : Intégration de Docker}
+\author{AvoCahDoe}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Introduction}
+L'objectif de cet atelier est de moderniser le processus de déploiement (CI/CD) d'une application Python simple (Calculatrice). Nous passons d'une méthode traditionnelle de génération de fichiers d'archive (ZIP) à la création d'images de conteneurs Docker. Cette approche garantit la cohérence des environnements d'exécution, du développement à la production.
+
+\section{Concepts Clés}
+\subsection{Docker}
+Docker permet d'encapsuler l'application et toutes ses dépendances (bibliothèques, runtime Python, OS minimal) dans un conteneur isolé. Contrairement à une machine virtuelle, les conteneurs partagent le noyau de l'hôte, ce qui les rend légers et rapides.
+
+\subsection{GitHub Container Registry (GHCR)}
+GHCR est un service d'hébergement d'images de conteneurs intégré à GitHub. Il permet de stocker, gérer et sécuriser les images Docker générées par les pipelines CI/CD.
+
+\section{Mise en Œuvre}
+
+\subsection{1. Création du Dockerfile}
+Un fichier \texttt{Dockerfile} a été créé à la racine du projet pour définir l'image de l'application.
+
+\begin{lstlisting}[language=bash, caption=Dockerfile]
+FROM python:3.9-slim
+WORKDIR /app
+COPY . .
+CMD ["python", "calculatrice.py"]
+\end{lstlisting}
+
+Ce fichier utilise une image de base Debian légère avec Python 3.9, copie le code source et définit la commande de lancement par défaut.
+
+\subsection{2. Mise à jour du Pipeline CI/CD}
+Le fichier de workflow GitHub Actions (\texttt{.github/workflows/main.yml}) a été modifié pour inclure un job de construction et de publication Docker.
+
+Le pipeline se décompose en deux jobs :
+\begin{itemize}
+    \item \textbf{Test (CI)} : Exécute les tests unitaires pour valider le code.
+    \item \textbf{Build \& Push (CD)} : Construit l'image Docker et la pousse sur GHCR si les tests sont validés.
+\end{itemize}
+
+\begin{lstlisting}[language=yaml, caption=Extrait du workflow main.yml]
+  build-push-docker:
+    needs: test-app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/avocahdoe/calculatrice:latest
+\end{lstlisting}
+
+\section{Résultats}
+À chaque \texttt{push} sur le dépôt :
+\begin{enumerate}
+    \item GitHub Actions lance les tests.
+    \item Si succès, l'image Docker est construite.
+    \item L'image est disponible dans la section \textbf{Packages} du dépôt, prête à être déployée.
+\end{enumerate}
+
+\section{Conclusion}
+L'intégration de Docker dans le pipeline CI/CD apporte une robustesse significative. Elle élimine les problèmes de compatibilité ("ça marche sur ma machine") et standardise le déploiement. L'utilisation de GHCR simplifie la gestion des artefacts directement au sein de l'écosystème GitHub.
+
+\end{document}
