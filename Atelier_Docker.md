@@ -13,7 +13,7 @@ Passer d'un simple fichier ZIP à une Image Docker est le standard actuel de l'i
 Au lieu de créer un fichier zip, notre pipeline va :
 
 1.  Construire une image Docker (l'application + Python + ses dépendances).
-2.  Stocker (Push) cette image dans le registre de conteneurs de GitHub (GHCR - GitHub Container Registry).
+2.  Stocker (Push) cette image dans le registre de conteneurs de GitHub (GHCR) **ET** sur Docker Hub.
 
 ---
 
@@ -41,9 +41,21 @@ CMD ["python", "calculatrice.py"]
 
 ---
 
-## Étape 2 : Mettre à jour le Pipeline (`main.yml`)
+## Étape 2 : Préparer les Secrets pour Docker Hub
 
-Nous allons modifier le fichier `.github/workflows/main.yml`. Nous gardons le job de test (CI), mais nous remplaçons le job de "build" par un job "docker".
+Pour publier sur Docker Hub, vous devez fournir vos identifiants à GitHub de manière sécurisée.
+
+1.  Allez sur votre dépôt GitHub.
+2.  Cliquez sur **Settings** (Paramètres) > **Secrets and variables** > **Actions**.
+3.  Cliquez sur **New repository secret** et ajoutez les deux secrets suivants :
+    - `DOCKERHUB_USERNAME` : Votre nom d'utilisateur Docker Hub.
+    - `DOCKERHUB_TOKEN` : Votre mot de passe Docker Hub ou un Access Token (recommandé).
+
+---
+
+## Étape 3 : Mettre à jour le Pipeline (`main.yml`)
+
+Nous allons modifier le fichier `.github/workflows/main.yml`. Nous ajoutons une étape de connexion à Docker Hub et mettons à jour la liste des tags.
 
 Voici le fichier complet mis à jour :
 
@@ -81,46 +93,67 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ github.actor }} # Votre nom d'utilisateur GitHub (Automatique)
+          password: ${{ secrets.GITHUB_TOKEN }} # Token généré automatiquement par GitHub Action (Pas besoin de le créer)
+
+      - name: Connexion à Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Construction et Push de l'image Docker
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          # ATTENTION : Remplacez 'votre-pseudo' par votre nom d'utilisateur GitHub (en minuscules !)
-          tags: ghcr.io/${{ github.actor }}/calculatrice:latest
+          tags: |
+            ghcr.io/${{ github.actor }}/calculatrice:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/calculatrice:latest
 ```
 
-> **ℹ️ Note sur les identifiants :**
-> Vous n'avez **pas besoin** de créer ces secrets vous-même :
->
-> - `${{ github.actor }}` : C'est automatiquement votre nom d'utilisateur GitHub.
-> - `${{ secrets.GITHUB_TOKEN }}` : C'est un mot de passe temporaire unique généré automatiquement par GitHub pour chaque exécution du pipeline. Il permet au pipeline de se connecter à votre compte sans que vous ayez à stocker votre vrai mot de passe.
->
-> **⚠️ Important :** Dans la ligne `tags`, assurez-vous que le nom d'utilisateur est en minuscules. La variable `${{ github.actor }}` récupère automatiquement votre pseudo, mais si vous l'écrivez en dur, utilisez des minuscules.
+## 📖 Référence : D'où viennent ces variables `${{ ... }}` ?
+
+Voici un tableau récapitulatif pour savoir quoi faire avec chaque variable :
+
+| Variable                                | D'où ça vient ?          | Action requise de votre part                                                        |
+| :-------------------------------------- | :----------------------- | :---------------------------------------------------------------------------------- |
+| **`${{ github.actor }}`**               | **Automatique** (GitHub) | **Aucune**. C'est votre pseudo GitHub. Le système le remplit tout seul.             |
+| **`${{ secrets.GITHUB_TOKEN }}`**       | **Automatique** (GitHub) | **Aucune**. C'est un code secret temporaire créé par GitHub juste pour ce pipeline. |
+| **`${{ secrets.DOCKERHUB_USERNAME }}`** | **Vous** (Secret)        | **À CRÉER**. C'est votre identifiant de connexion sur le site Docker Hub.           |
+| **`${{ secrets.DOCKERHUB_TOKEN }}`**    | **Vous** (Secret)        | **À CRÉER**. C'est un "Access Token" à générer sur Docker Hub.                      |
+
+### 🔐 Comment obtenir et ajouter les secrets Docker Hub ?
+
+1.  **Récupérer votre Token sur Docker Hub :**
+
+    - Connectez-vous sur [hub.docker.com](https://hub.docker.com).
+    - Cliquez sur votre avatar (en haut à droite) -> **My Account**.
+    - Allez dans l'onglet **Security**.
+    - Cliquez sur le bouton **New Access Token**.
+    - Donnez-lui un nom (ex: "GitHub Actions") et validez.
+    - **Copiez le code qui s'affiche** (vous ne pourrez plus le revoir !).
+
+2.  **Ajouter les secrets dans GitHub :**
+    - Allez sur la page de votre dépôt GitHub.
+    - Cliquez sur l'onglet **Settings** (tout à droite).
+    - Dans le menu de gauche : **Secrets and variables** -> **Actions**.
+    - Cliquez sur le bouton vert **New repository secret**.
+    - Ajoutez **`DOCKERHUB_USERNAME`** (votre pseudo ex: `avocahdoe`).
+    - Ajoutez **`DOCKERHUB_TOKEN`** (le code copié à l'étape 1).
 
 ---
 
-## Étape 3 : Vérifier le résultat
+## Étape 4 : Vérifier le résultat
 
 1.  Faites un **Commit** de ces changements.
 2.  Allez dans l'onglet **Actions** pour voir le déroulement.
-3.  Une fois les deux cercles verts (Test et Build-Push), la magie a opéré.
-
-### Où est mon image Docker ?
-
-1.  Retournez sur la page d'accueil de votre dépôt GitHub.
-2.  Regardez dans la colonne de droite, vous devriez voir une section **Packages**.
-3.  Vous y verrez votre image Docker prête à être téléchargée (`pull`) par n'importe quel serveur.
+3.  Une fois terminé, vérifiez :
+    - Sur GitHub : Section **Packages**.
+    - Sur Docker Hub : Votre nouveau dépôt `calculatrice`.
 
 ---
 
-## Résumé de ce que vous avez construit
+## Résumé
 
-À chaque modification de code :
-
-- GitHub **vérifie** que vous n'avez rien cassé (Tests).
-- Si c'est bon, il **emballe** le tout dans un conteneur sécurisé.
-- Il le **met à disposition** dans votre registre privé.
+Votre pipeline publie maintenant votre application simultanément sur deux registres majeurs (GitHub et Docker Hub), assurant une disponibilité maximale.

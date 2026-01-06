@@ -34,10 +34,17 @@ jobs:
           username: ${{ github.actor }} # Votre nom d'utilisateur GitHub (Automatique)
           password: ${{ secrets.GITHUB_TOKEN }} # Token généré automatiquement par GitHub Action (Pas besoin de le créer)
 
+      - name: Connexion à Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Construction et Push de l'image Docker
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          # ATTENTION : Pseudo en minuscules
-          tags: ghcr.io/avocahdoe/calculatrice:latest
+          tags: |
+            ghcr.io/${{ github.actor }}/calculatrice:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/calculatrice:latest

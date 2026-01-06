@@ -6,4 +6,4 @@ def soustraction(a, b):
 
 if __name__ == "__main__":
     print("Application Calculatrice Démarrée")
-    print("2 + 2 =", addition(2, 2))
+    print("3 + 3 =", addition(3, 3))
