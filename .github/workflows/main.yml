@@ -3,6 +3,7 @@ name: CI/CD avec Docker
 on: [push]
 
 jobs:
+
   # JOB 1 : CI (Reste identique)
   test-app:
     runs-on: ubuntu-latest
